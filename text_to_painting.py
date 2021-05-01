@@ -59,7 +59,7 @@ def main(args):
             points.append(p2)
             if args.use_blob and j < num_segments - 1 or not args.use_blob:
                 points.append(p3)
-            p0 = p3        
+                p0 = p3        
         points = torch.tensor(points)
         points[:, 0] *= canvas_width
         points[:, 1] *= canvas_height
