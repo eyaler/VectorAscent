@@ -148,8 +148,10 @@ def main(args):
           width_optim = torch.optim.Adam(stroke_width_vars, lr=args.width_lr)
       color_optim = torch.optim.Adam(color_vars, lr=args.color_lr)
       # Adam iterations.
-      this_iter = max(1,round(args.num_iter*step/args.num_paths))
-      for t in range(this_iter):
+      this_step_iters = max(1,round(args.num_iter*step/args.num_paths))
+        if num_paths+step>args.num_paths:
+            this_step_iters += args.iter_extra
+      for t in range(this_step_iters):
           print('iteration:', tt)
           points_optim.zero_grad()
           if len(stroke_width_vars) > 0:
@@ -193,7 +195,7 @@ def main(args):
               for group in shape_groups:
                   group.stroke_color.data.clamp_(0.0, 1.0)
 
-          if t % 10 == 0 or t == this_iter - 1:
+          if t % 10 == 0 or t == this_step_iters - 1:
               pydiffvg.save_svg(os.path.join(outdir, 'iter_{}.svg'.format(tt)),
                                 canvas_width, canvas_height, shapes, shape_groups)
               clip_utils.plot_losses(losses, outdir)
@@ -227,6 +229,7 @@ if __name__ == "__main__":
     parser.add_argument("--margin", type=float, default=0)
     parser.add_argument("--final_px", type=int, default=512)
     parser.add_argument("--num_iter", type=int, default=500)
+    parser.add_argument("--iter_extra", type=int, default=0)
     parser.add_argument("--use_blob", dest='use_blob', action='store_true')
     parser.add_argument("--points_lr", type=float, default=1.0)
     parser.add_argument("--width_lr", type=float, default=0.1)
