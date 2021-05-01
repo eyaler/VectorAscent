@@ -149,8 +149,8 @@ def main(args):
       color_optim = torch.optim.Adam(color_vars, lr=args.color_lr)
       # Adam iterations.
       this_step_iters = max(1,round(args.num_iter*step/args.num_paths))
-        if num_paths+step>args.num_paths:
-            this_step_iters += args.iter_extra
+      if num_paths+step>args.num_paths:
+          this_step_iters += args.iter_extra
       for t in range(this_step_iters):
           print('iteration:', tt)
           points_optim.zero_grad()
