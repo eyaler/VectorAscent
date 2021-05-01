@@ -102,7 +102,7 @@ def main(args):
       for path in shapes:
           path.points.requires_grad = True
           points_vars.append(path.points)
-          if not path.is_closed:
+          if not path.is_closed and args.max_width>1:
             path.stroke_width.requires_grad = True
             stroke_width_vars.append(path.stroke_width)
       for group in shape_groups:
