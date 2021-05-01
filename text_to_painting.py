@@ -36,7 +36,7 @@ def main(args):
     total_paths = args.open_paths+args.closed_paths
     step = min(args.step, total_paths)
     if step==0:
-      step = args.total_paths
+      step = total_paths
     
     fill_color = None
     stroke_color = None
