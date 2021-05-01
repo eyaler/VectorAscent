@@ -20,6 +20,7 @@ import clip_utils
 pydiffvg.set_print_timing(True)
 
 gamma = 1.0
+radius = 0.05
 
 def main(args):
     outdir = os.path.join(args.results_dir, args.prompt, args.subdir)
@@ -38,73 +39,44 @@ def main(args):
         random.seed(args.seed)
         torch.manual_seed(args.seed)
     
+    fill_color = None
+    stroke_color = None
     shapes = []
     shape_groups = []
     tt=0
     for num_paths in range(step,args.num_paths+1, step):
       for i in range(num_paths-step, num_paths):
+        num_segments = random.randint(args.extra_segments)+1
+        points = []
+        p0 = (margin+random.random()*(1-2*margin), margin+random.random()*(1-2*margin))
         if args.use_blob: 
-            num_segments = random.randint(3, 5)
-            points = []
-            p0 = (margin+random.random()*(1-2*margin), margin+random.random()*(1-2*margin))
-            points.append(p0)
-            for j in range(num_segments):
-                radius = 0.05
-                p1 = (p0[0] + radius * (random.random() - 0.5), p0[1] + radius * (random.random() - 0.5))
-                p2 = (p1[0] + radius * (random.random() - 0.5), p1[1] + radius * (random.random() - 0.5))
-                p3 = (p2[0] + radius * (random.random() - 0.5), p2[1] + radius * (random.random() - 0.5))
-                points.append(p1)
-                points.append(p2)
-                if j < num_segments - 1:
-                    points.append(p3)
-                    p0 = p3
-            points = torch.tensor(points)
-            points[:, 0] *= canvas_width
-            points[:, 1] *= canvas_height
-            color = torch.tensor([random.random(),
-                                      random.random(),
-                                      random.random(),
-                                      random.random()])
-            num_control_points = torch.zeros(num_segments, dtype = torch.int32) + 2
-            path = pydiffvg.Path(num_control_points = num_control_points,
-                                points = points,
-                                stroke_width = torch.tensor(1.0),
-                                is_closed = True)
-            shapes.append(path)
-            path_group = pydiffvg.ShapeGroup(shape_ids = torch.tensor([len(shapes) - 1]),
-                                            fill_color = color)
-        else:
-            num_segments = random.randint(1, 3)
-            points = []
-            p0 = (margin+random.random()*(1-2*margin), margin+random.random()*(1-2*margin))
-            points.append(p0)
-            for j in range(num_segments):
-                radius = 0.05
-                p1 = (p0[0] + radius * (random.random() - 0.5), p0[1] + radius * (random.random() - 0.5))
-                p2 = (p1[0] + radius * (random.random() - 0.5), p1[1] + radius * (random.random() - 0.5))
-                p3 = (p2[0] + radius * (random.random() - 0.5), p2[1] + radius * (random.random() - 0.5))
-                points.append(p1)
-                points.append(p2)
+            num_segments += 2
+        for j in range(num_segments):
+            p1 = (p0[0] + radius * (random.random() - 0.5), p0[1] + radius * (random.random() - 0.5))
+            p2 = (p1[0] + radius * (random.random() - 0.5), p1[1] + radius * (random.random() - 0.5))
+            p3 = (p2[0] + radius * (random.random() - 0.5), p2[1] + radius * (random.random() - 0.5))
+            points.append(p1)
+            points.append(p2)
+            if args.use_blob and j < num_segments - 1 or not args.use_blob:
                 points.append(p3)
-                p0 = p3
-            points = torch.tensor(points)
-            points[:, 0] *= canvas_width
-            points[:, 1] *= canvas_height
-            #points = torch.rand(3 * num_segments + 1, 2) * min(canvas_width, canvas_height)
-            width = torch.tensor(1.0)
-            color = torch.tensor([random.random(),
-                                      random.random(),
-                                      random.random(),
-                                      random.random()])
-            num_control_points = torch.zeros(num_segments, dtype = torch.int32) + 2
-            path = pydiffvg.Path(num_control_points = num_control_points,
-                                points = points,
-                                stroke_width = width,
-                                is_closed = False)
-            shapes.append(path)
-            path_group = pydiffvg.ShapeGroup(shape_ids = torch.tensor([len(shapes) - 1]),
-                                            fill_color = None,
-                                            stroke_color = color)
+            p0 = p3        
+        points = torch.tensor(points)
+        points[:, 0] *= canvas_width
+        points[:, 1] *= canvas_height
+        stroke_width = torch.tensor(1.0)
+        color = torch.tensor([random.random(),
+                              random.random(),
+                              random.random(),
+                              random.random()])
+        num_control_points = torch.zeros(num_segments, dtype = torch.int32) + 2
+        path = pydiffvg.Path(num_control_points = num_control_points,
+                            points = points,
+                            stroke_width = stroke_width,
+                            is_closed = args.use_blob)
+        shapes.append(path)
+        path_group = pydiffvg.ShapeGroup(shape_ids = torch.tensor([len(shapes) - 1]),
+                                            fill_color = color if args.use_blob else None,
+                                            stroke_color = None if args.use_blob else color)
         shape_groups.append(path_group)
       
       scene_args = pydiffvg.RenderFunction.serialize_scene(\
@@ -226,6 +198,7 @@ if __name__ == "__main__":
     parser.add_argument('--results_dir', default='results/text_to_painting')
     parser.add_argument('--subdir', default='default')
     parser.add_argument("--num_paths", type=int, default=512)
+    parser.add_argument("--extra_segments", type=int, default=2)
     parser.add_argument("--step", type=int, default=0)
     parser.add_argument("--max_width", type=float, default=2.0)
     parser.add_argument("--margin", type=float, default=0)
