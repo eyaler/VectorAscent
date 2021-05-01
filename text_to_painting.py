@@ -34,8 +34,9 @@ def main(args):
     if step==0:
       step = args.num_paths
 
-    random.seed(1234)
-    torch.manual_seed(1234)
+    if args.seed:
+        random.seed(args.seed)
+        torch.manual_seed(args.seed)
     
     shapes = []
     shape_groups = []
@@ -236,5 +237,6 @@ if __name__ == "__main__":
     parser.add_argument("--points_lr", type=float, default=1.0)
     parser.add_argument("--width_lr", type=float, default=0.1)
     parser.add_argument("--color_lr", type=float, default=0.01)
+    parser.add_argument("--seed", type=int, default=1234)
     args = parser.parse_args()
     main(args)
