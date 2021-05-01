@@ -46,7 +46,7 @@ def main(args):
     tt=0
     for num_paths in range(step,args.num_paths+1, step):
       for i in range(num_paths-step, num_paths):
-        num_segments = random.randint(args.extra_segments)+1
+        num_segments = random.randint(1,args.extra_segments+1)
         points = []
         p0 = (margin+random.random()*(1-2*margin), margin+random.random()*(1-2*margin))
         if args.use_blob: 
