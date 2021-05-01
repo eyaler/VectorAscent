@@ -14,6 +14,7 @@ import skimage
 import skimage.io
 import warnings
 import clip_utils
+import numpy as np
 
 pydiffvg.set_print_timing(False)
 
@@ -21,6 +22,11 @@ gamma = 1.0
 radius = 0.05
 
 def main(args):
+    if args.seed:
+        np.random.seed(args.seed)
+        random.seed(args.seed)
+        torch.manual_seed(args.seed)
+
     outdir = os.path.join(args.results_dir, args.prompt, args.subdir)
 
     # Use GPU if available
@@ -31,10 +37,6 @@ def main(args):
     step = min(args.step, args.num_paths)
     if step==0:
       step = args.num_paths
-
-    if args.seed:
-        random.seed(args.seed)
-        torch.manual_seed(args.seed)
     
     fill_color = None
     stroke_color = None
@@ -121,7 +123,9 @@ def main(args):
       color_optim = torch.optim.Adam(color_vars, lr=args.color_lr)
       # Adam iterations.
       this_step_iters = max(1,round(args.num_iter*step/args.num_paths))
+      final=False
       if num_paths+step>args.num_paths:
+          final=True
           this_step_iters += args.iter_extra
       for t in range(this_step_iters):
           points_optim.zero_grad()
@@ -147,7 +151,7 @@ def main(args):
           
           # Backpropagate the gradients.
           loss.backward()
-          losses.append(loss.item())
+          losses.append(-loss.item())
 
           # Take a gradient descent step.
           points_optim.step()
@@ -168,8 +172,8 @@ def main(args):
                   group.stroke_color.data[:3].clamp_(0.0, 1.0)
                   group.stroke_color.data[3].clamp_(args.min_trans, 1.0)
 
-          if t % 10 == 0 or t == this_step_iters - 1:
-              print(tt,'loss:', losses[-1])
+          if tt % 10 == 0 or final and t == this_step_iters - 1:
+              print('%d loss=%.3f'%(tt, losses[-1]))
               pydiffvg.save_svg(os.path.join(outdir, 'iter_{}.svg'.format(tt)),
                                 canvas_width, canvas_height, shapes, shape_groups)
               clip_utils.plot_losses(losses, outdir)
