@@ -3,7 +3,6 @@ Author: Ajay Jain
 Generate SVG vector images from a caption
 Based on https://github.com/BachiLi/diffvg/blob/master/apps/painterly_rendering.py
 """
-
 import argparse
 import math
 import os
@@ -13,11 +12,10 @@ import pydiffvg
 import torch
 import skimage
 import skimage.io
-
+import warnings
 import clip_utils
 
-
-pydiffvg.set_print_timing(True)
+pydiffvg.set_print_timing(False)
 
 gamma = 1.0
 radius = 0.05
@@ -29,7 +27,6 @@ def main(args):
     pydiffvg.set_use_gpu(torch.cuda.is_available())
     
     canvas_width, canvas_height = 224, 224
-    max_width = args.max_width
     margin = args.margin
     step = min(args.step, args.num_paths)
     if step==0:
@@ -90,7 +87,10 @@ def main(args):
                   0,   # seed
                   None,
                   *scene_args)
-      pydiffvg.imwrite(img.cpu(), os.path.join(outdir, 'init.png'), gamma=gamma)
+
+      with warnings.catch_warnings():
+          warnings.simplefilter("ignore")
+          pydiffvg.imwrite(img.cpu(), os.path.join(outdir, 'init.png'), gamma=gamma)
 
       points_vars = []
       stroke_width_vars = []
@@ -98,15 +98,14 @@ def main(args):
       for path in shapes:
           path.points.requires_grad = True
           points_vars.append(path.points)
-      if not args.use_blob:
-          for path in shapes:
-              path.stroke_width.requires_grad = True
-              stroke_width_vars.append(path.stroke_width)
       if args.use_blob:
           for group in shape_groups:
               group.fill_color.requires_grad = True
               color_vars.append(group.fill_color)
       else:
+          for path in shapes:
+              path.stroke_width.requires_grad = True
+              stroke_width_vars.append(path.stroke_width)
           for group in shape_groups:
               group.stroke_color.requires_grad = True
               color_vars.append(group.stroke_color)
@@ -125,7 +124,6 @@ def main(args):
       if num_paths+step>args.num_paths:
           this_step_iters += args.iter_extra
       for t in range(this_step_iters):
-          print('iteration:', tt)
           points_optim.zero_grad()
           if len(stroke_width_vars) > 0:
               width_optim.zero_grad()
@@ -141,11 +139,12 @@ def main(args):
                       None,
                       *scene_args)
           # Save the intermediate render.
-          pydiffvg.imwrite(img.cpu(), os.path.join(outdir, 'iter_{}.png'.format(tt)), gamma=gamma)
+          with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            pydiffvg.imwrite(img.cpu(), os.path.join(outdir, 'iter_{}.png'.format(tt)), gamma=gamma)
           image_features = clip_utils.embed_image(img)
           loss = -torch.cosine_similarity(text_features, image_features, dim=-1).mean()
-          print('render loss:', loss.item())
-      
+          
           # Backpropagate the gradients.
           loss.backward()
           losses.append(loss.item())
@@ -160,7 +159,7 @@ def main(args):
           color_optim.step()
           if len(stroke_width_vars) > 0:
               for path in shapes:
-                  path.stroke_width.data.clamp_(1.0, max_width)
+                  path.stroke_width.data.clamp_(1.0, args.max_width)
           if args.use_blob:
               for group in shape_groups:
                   group.fill_color.data.clamp_(0.0, 1.0)
@@ -169,7 +168,8 @@ def main(args):
                   group.stroke_color.data[:3].clamp_(0.0, 1.0)
                   group.stroke_color.data[3].clamp_(args.min_trans, 1.0)
 
-          if t % 10 == 0 or t == this_step_iters - 1:
+          if t % args.save_every == 0 or t == this_step_iters - 1:
+              print(tt,'loss:', losses[-1])
               pydiffvg.save_svg(os.path.join(outdir, 'iter_{}.svg'.format(tt)),
                                 canvas_width, canvas_height, shapes, shape_groups)
               clip_utils.plot_losses(losses, outdir)
@@ -183,13 +183,16 @@ def main(args):
                  0,   # seed
                  None,
                  *scene_args)
-    # Save the intermediate render.
-    pydiffvg.imwrite(img.cpu(), os.path.join(outdir, 'final.png'), gamma=gamma)
+    # Save the intermediate render
+    with warnings.catch_warnings():
+      warnings.simplefilter("ignore")
+      pydiffvg.imwrite(img.cpu(), os.path.join(outdir, 'final.png'), gamma=gamma)
     # Convert the intermediate renderings to a video with a white background.
     from subprocess import call
     call(["ffmpeg", "-framerate", "24", "-i",
         os.path.join(outdir, "iter_%d.png"), "-vb", "20M", "-filter_complex",
         "color=white,format=rgb24[c];[c][0]scale2ref[c][i];[c][i]overlay=format=auto:shortest=1,setsar=1",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-profile:v", "baseline", "-movflags", "+faststart",
         os.path.join(outdir, "out.mp4")])
 
 if __name__ == "__main__":
@@ -210,6 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("--points_lr", type=float, default=1.0)
     parser.add_argument("--width_lr", type=float, default=0.1)
     parser.add_argument("--color_lr", type=float, default=0.01)
+    parser.add_argument("--save_every", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1234)
     args = parser.parse_args()
     main(args)

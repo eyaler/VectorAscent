@@ -61,3 +61,4 @@ def plot_losses(losses, dir):
     plt.ylabel('Cosine similarity')
     plt.savefig(os.path.join(dir, 'cosine_sim.pdf'))
     plt.savefig(os.path.join(dir, 'cosine_sim.png'))
+    plt.close()
