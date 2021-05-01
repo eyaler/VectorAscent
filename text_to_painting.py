@@ -193,7 +193,8 @@ def main(args):
                   group.fill_color.data.clamp_(0.0, 1.0)
           else:
               for group in shape_groups:
-                  group.stroke_color.data.clamp_(0.0, 1.0)
+                  group.stroke_color.data[:3].clamp_(0.0, 1.0)
+                  group.stroke_color.data[3].clamp_(args.min_trans, 1.0)
 
           if t % 10 == 0 or t == this_step_iters - 1:
               pydiffvg.save_svg(os.path.join(outdir, 'iter_{}.svg'.format(tt)),
@@ -227,6 +228,7 @@ if __name__ == "__main__":
     parser.add_argument("--step", type=int, default=0)
     parser.add_argument("--max_width", type=float, default=2.0)
     parser.add_argument("--margin", type=float, default=0)
+    parser.add_argument("--min_trans", type=float, default=0)
     parser.add_argument("--final_px", type=int, default=512)
     parser.add_argument("--num_iter", type=int, default=500)
     parser.add_argument("--iter_extra", type=int, default=0)
