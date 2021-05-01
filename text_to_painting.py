@@ -40,12 +40,13 @@ def main(args):
     stroke_color = None
     shapes = []
     shape_groups = []
+    losses = []
     tt=0
     for num_paths in range(step,args.num_paths+1, step):
       for i in range(num_paths-step, num_paths):
         num_segments = random.randint(1,args.extra_segments+1)
-        points = []
         p0 = (margin+random.random()*(1-2*margin), margin+random.random()*(1-2*margin))
+        points = [p0]
         if args.use_blob: 
             num_segments += 2
         for j in range(num_segments):
@@ -114,7 +115,6 @@ def main(args):
       text_features = clip_utils.embed_text(args.prompt)
 
       # Optimize
-      losses = []
       points_optim = torch.optim.Adam(points_vars, lr=args.points_lr)
       if len(stroke_width_vars) > 0:
           width_optim = torch.optim.Adam(stroke_width_vars, lr=args.width_lr)
@@ -168,7 +168,7 @@ def main(args):
                   group.stroke_color.data[:3].clamp_(0.0, 1.0)
                   group.stroke_color.data[3].clamp_(args.min_trans, 1.0)
 
-          if t % args.save_every == 0 or t == this_step_iters - 1:
+          if t % 10 == 0 or t == this_step_iters - 1:
               print(tt,'loss:', losses[-1])
               pydiffvg.save_svg(os.path.join(outdir, 'iter_{}.svg'.format(tt)),
                                 canvas_width, canvas_height, shapes, shape_groups)
@@ -213,7 +213,6 @@ if __name__ == "__main__":
     parser.add_argument("--points_lr", type=float, default=1.0)
     parser.add_argument("--width_lr", type=float, default=0.1)
     parser.add_argument("--color_lr", type=float, default=0.01)
-    parser.add_argument("--save_every", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1234)
     args = parser.parse_args()
     main(args)
